@@ -1,0 +1,41 @@
+name: Build cloudflared for macOS 10.15
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          repository: 'cloudflare/cloudflared'
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Install Dependencies
+        run: |
+          brew install capnp
+
+      - name: Build
+        env:
+          GOOS: darwin
+          GOARCH: amd64
+          CGO_ENABLED: 0
+          MACOSX_DEPLOYMENT_TARGET: "10.15"
+        run: |
+          make cloudflared
+          vtool -set-build-version macos 10.15 10.15 -replace -output cloudflared cloudflared
+          CF_VERSION=$(./cloudflared version | awk '{print $3}')
+          echo "DETECTED_VERSION=$CF_VERSION" >> $GITHUB_ENV
+          
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudflared-${{ env.DETECTED_VERSION }}-macOS-10.15
+          path: cloudflared
